@@ -5,8 +5,9 @@
   "identifier": "vue3.dev",
   "build": {
     "frontendDist": "../dist",
-    "beforeDevCommand": "npm run start",
-    "beforeBuildCommand": "npm run build"
+    "devUrl": "http://localhost:8080",
+    "beforeDevCommand": "bun run start",
+    "beforeBuildCommand": "bun run build"
   },
   "app": {
     "windows": [

@@ -28,3 +28,4 @@ pnpm-debug.log*
 stats.html
 mockups
 yarn.lock
+bun.lock

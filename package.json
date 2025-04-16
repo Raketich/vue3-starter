@@ -12,8 +12,8 @@
     "prestart": "shx rm -rf dist",
     "start": "rollup -c -w --environment NODE_ENV:development",
     "prepare": "husky install",
-    "tauri:dev": "pnpm tauri dev",
-    "tauri:build": "pnpm tauri build"
+    "tauri:dev": "bun tauri dev",
+    "tauri:build": "bun tauri build"
   },
   "devDependencies": {
     "@babel/core": "^7.18.5",
