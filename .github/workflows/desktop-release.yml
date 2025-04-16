@@ -16,7 +16,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '16'
+          node-version: '20'
           cache: 'bun'
           
       - name: Setup Bun
@@ -46,7 +46,7 @@ jobs:
           args: ${{ matrix.platform == 'macos-latest' && '--target universal-apple-darwin' || '' }}
       
       - name: Upload artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: tauri-${{ matrix.platform }}-build
           path: |
