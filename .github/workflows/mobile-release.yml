@@ -28,7 +28,7 @@ jobs:
           cargo install tauri-cli --version ^2.0.0-beta
 
       - name: Build APK
-        run: cargo tauri android build -r
+        run: cargo tauri android build
         env:
           ANDROID_HOME: ${{ env.ANDROID_HOME }}
 
@@ -62,7 +62,7 @@ jobs:
           cargo install tauri-cli --version ^2.0.0-beta
 
       - name: Build IPA
-        run: cargo tauri ios build -r
+        run: cargo tauri ios build
 
       - uses: actions/upload-artifact@v4
         with:
