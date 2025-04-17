@@ -9,34 +9,34 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '20'
+          node-version: '18'
           cache: 'npm'
-          
+
       - name: Install dependencies
         run: npm ci
-        
+
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
-        
+
       - name: Install Rust targets
         run: |
           rustup target add aarch64-linux-android armv7-linux-androideabi
           cargo install tauri-cli --version ^2.0.0-beta
-          
+
       - name: Build APK
         run: npm run tauri android build -- --release
         env:
           ANDROID_HOME: ${{ env.ANDROID_HOME }}
-          
+
       - uses: actions/upload-artifact@v4
         with:
           name: android-apk
           path: src-tauri/target/android-artifacts/release/*.apk
-          
+
       - uses: actions/upload-artifact@v4
         with:
           name: android-bundle
@@ -46,24 +46,24 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '20'
+          node-version: '18'
           cache: 'npm'
-          
+
       - name: Install dependencies
         run: npm ci
-        
+
       - name: Install Rust targets
         run: |
           rustup target add aarch64-apple-ios x86_64-apple-ios
           cargo install tauri-cli --version ^2.0.0-beta
-          
+
       - name: Build IPA
         run: npm run tauri ios build -- --release
-        
+
       - uses: actions/upload-artifact@v4
         with:
           name: ios-ipa
