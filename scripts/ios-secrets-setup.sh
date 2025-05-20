@@ -171,8 +171,10 @@ read -sp "Enter the password you just set for the certificate: " CERT_PASSWORD
 echo
 
 # Remove any trailing whitespace or newlines from the password
-CERT_PASSWORD=$(echo "$CERT_PASSWORD" | tr -d '\n' | tr -d '\r')
+CERT_PASSWORD=$(echo "$CERT_PASSWORD" | tr -d '\n' | tr -d '\r' | tr -d ' ')
 echo -e "\n${YELLOW}Password sanitized to avoid hidden characters.${NC}"
+echo -e "Password length: ${#CERT_PASSWORD} characters"
+echo -e "Password: '${CERT_PASSWORD}' (surrounded by quotes to show any spaces)"
 
 # Step 3: Find and export Provisioning Profile
 echo -e "\n${GREEN}Step 3: Finding Provisioning Profiles${NC}"
@@ -264,8 +266,51 @@ fi
 # Step 4: Convert to base64
 echo -e "\n${GREEN}Step 4: Converting files to base64 for GitHub secrets${NC}"
 
-P12_BASE64=$(base64 -i "$P12_FILE")
-PROFILE_BASE64=$(base64 -i "$PROFILE_FILE")
+# Ensure base64 output has NO line breaks or invisible characters (this is critical for GitHub Actions)
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    # macOS base64 output needs to be piped through tr to remove newlines
+    P12_BASE64=$(base64 -i "$P12_FILE" | tr -d '\n')
+    PROFILE_BASE64=$(base64 -i "$PROFILE_FILE" | tr -d '\n')
+else
+    # Linux base64 can use -w0 for no wrapping
+    P12_BASE64=$(base64 -w0 -i "$P12_FILE")
+    PROFILE_BASE64=$(base64 -w0 -i "$PROFILE_FILE")
+fi
+
+# Confirm there are no newlines in the encoding
+if echo "$P12_BASE64" | grep -q $'\n'; then
+    echo -e "${RED}WARNING: Newlines detected in certificate base64 - fixing...${NC}"
+    P12_BASE64=$(echo "$P12_BASE64" | tr -d '\n')
+fi
+
+if echo "$PROFILE_BASE64" | grep -q $'\n'; then
+    echo -e "${RED}WARNING: Newlines detected in profile base64 - fixing...${NC}"
+    PROFILE_BASE64=$(echo "$PROFILE_BASE64" | tr -d '\n')
+fi
+
+# Verify base64 encoding worked and has no line breaks
+P12_LEN=${#P12_BASE64}
+PROFILE_LEN=${#PROFILE_BASE64}
+echo -e "${BLUE}Certificate base64 length: ${P12_LEN} characters (should be one continuous string)${NC}"
+echo -e "${BLUE}Profile base64 length: ${PROFILE_LEN} characters (should be one continuous string)${NC}"
+
+# Verify certificate can be decoded properly
+TEMP_P12="$TEMP_DIR/verify_cert.p12"
+echo "$P12_BASE64" | base64 -d > "$TEMP_P12" 2>/dev/null
+if [ $? -eq 0 ]; then
+    echo -e "${GREEN}Certificate base64 verification: SUCCESS${NC}"
+    # Check if openssl can read the cert
+    if openssl pkcs12 -in "$TEMP_P12" -noout -passin "pass:$CERT_PASSWORD" 2>/dev/null; then
+        echo -e "${GREEN}Certificate password verification: SUCCESS${NC}"
+    else
+        echo -e "${RED}Certificate password verification: FAILED${NC}"
+        echo -e "${RED}The password doesn't appear to work with the certificate.${NC}"
+        echo -e "${YELLOW}Try again with a simpler password with only alphanumeric characters.${NC}"
+    fi
+else
+    echo -e "${RED}Certificate base64 verification: FAILED${NC}"
+    echo -e "${RED}The base64 encoding might have issues.${NC}"
+fi
 
 # Generate output file
 OUTPUT_FILE="$TEMP_DIR/github_secrets.txt"
@@ -279,14 +324,48 @@ OUTPUT_FILE="$TEMP_DIR/github_secrets.txt"
     echo "# Apple Team ID"
     echo "APPLE_TEAM_ID=$TEAM_ID"
     echo
-    echo "# iOS Development Certificate (DO NOT INCLUDE --- lines)"
+    echo "# iOS Development Certificate (IMPORTANT: ADD AS ONE CONTINUOUS STRING WITH NO LINE BREAKS)"
     echo "IOS_DEVELOPMENT_CERTIFICATE=$P12_BASE64"
     echo
     echo "# Certificate Password"
     echo "IOS_DEVELOPMENT_CERTIFICATE_PASSWORD=$CERT_PASSWORD"
     echo
-    echo "# Provisioning Profile (DO NOT INCLUDE --- lines)"
+    echo "# IMPORTANT: Verify this password length matches what you expect: ${#CERT_PASSWORD} characters"
+    echo
+    echo "# Provisioning Profile (IMPORTANT: ADD AS ONE CONTINUOUS STRING WITH NO LINE BREAKS)"
     echo "IOS_ADHOC_PROVISIONING_PROFILE=$PROFILE_BASE64"
+    echo
+    echo "# GitHub Action Debug Code"
+    echo "# Add this to your workflow to debug certificate issues:"
+    echo "      - name: Debug Certificate Issues"
+    echo "        run: |"
+    echo "          echo \"Certificate length check (should be non-zero):\""
+    echo "          [[ -n \"\$IOS_DEVELOPMENT_CERTIFICATE\" ]] && echo \"Certificate exists and is not empty\" || echo \"Certificate is EMPTY!\""
+    echo "          echo \"Certificate length:     \${#IOS_DEVELOPMENT_CERTIFICATE} characters\""
+    echo "          echo \"Password length check (should be non-zero):\""
+    echo "          [[ -n \"\$IOS_DEVELOPMENT_CERTIFICATE_PASSWORD\" ]] && echo \"Password exists and is not empty\" || echo \"Password is EMPTY!\""
+    echo "          echo \"Password length:       \${#IOS_DEVELOPMENT_CERTIFICATE_PASSWORD} characters\""
+    echo "          echo \"Provisioning profile check (should be non-zero):\""
+    echo "          [[ -n \"\$IOS_ADHOC_PROVISIONING_PROFILE\" ]] && echo \"Provisioning profile exists and is not empty\" || echo \"Profile is EMPTY!\""
+    echo "          echo \"Profile length:    \${#IOS_ADHOC_PROVISIONING_PROFILE} characters\""
+    echo
+    echo "          # Test base64 decoding of the certificate"
+    echo "          echo \"Testing if certificate can be properly decoded from base64:\""
+    echo "          echo \"\$IOS_DEVELOPMENT_CERTIFICATE\" | base64 -d > /tmp/test_cert.p12"
+    echo "          echo \"Decoded certificate size: \$(wc -c < /tmp/test_cert.p12) bytes\""
+    echo "          echo \"Certificate file type:\""
+    echo "          file /tmp/test_cert.p12"
+    echo "          # Test password (this may fail but confirms if password is being read)"
+    echo "          echo \"Testing certificate with password (will likely fail, but shows if password is being processed):\""
+    echo "          [[ -n \"\$IOS_DEVELOPMENT_CERTIFICATE_PASSWORD\" ]] && echo \"Password starts with: \${IOS_DEVELOPMENT_CERTIFICATE_PASSWORD:0:3}...\""
+    echo
+    echo "      # If the password has any extra chars, use this step to clean it:"
+    echo "      - name: Trim any whitespace or newlines from the password and store in environment"
+    echo "        run: |"
+    echo "          echo \"Original password length: \${#IOS_DEVELOPMENT_CERTIFICATE_PASSWORD} characters\""
+    echo "          CLEAN_PASSWORD=\$(echo \"\$IOS_DEVELOPMENT_CERTIFICATE_PASSWORD\" | tr -d '\n' | tr -d '\r' | tr -d ' ')"
+    echo "          echo \"Cleaned password length: \${#CLEAN_PASSWORD} characters\""
+    echo "          echo \"IOS_DEVELOPMENT_CERTIFICATE_PASSWORD=\$CLEAN_PASSWORD\" >> \$GITHUB_ENV"
     echo
 } > "$OUTPUT_FILE"
 
@@ -300,7 +379,15 @@ echo "2. Navigate to Settings > Secrets and variables > Actions"
 echo "3. Add each secret from the generated file"
 echo "4. Follow the format: Name = Value (copy everything after the = sign)"
 echo
-echo -e "${RED}IMPORTANT: The file contains sensitive data. Delete it after use!${NC}"
+echo -e "${RED}IMPORTANT NOTES FOR GITHUB ACTIONS:${NC}"
+echo "• Ensure each secret is copied WITHOUT any line breaks"
+echo "• For certificate and profile values, copy the ENTIRE string as one continuous line"
+echo "• For the password, make sure there are no trailing spaces or newlines"
+echo "• Password length: ${#CERT_PASSWORD} characters - verify this matches what you expect!"
+echo "• If copying manually, make sure the browser doesn't add hidden characters"
+echo "• Copy directly from terminal if possible, or use a text editor that shows hidden characters"
+echo "• If you encounter 'MAC verification failed' errors, re-run this script and try again"
+echo "• These secrets are sensitive - delete the output file after use!"
 echo -e "${BLUE}==================================================================${NC}"
 
 # Information about script portability
