@@ -40,13 +40,10 @@ jobs:
         run: |
           echo "Certificate length check (should be non-zero):"
           [[ -n "${{ secrets.IOS_DEVELOPMENT_CERTIFICATE }}" ]] && echo "Certificate exists and is not empty" || echo "Certificate is EMPTY!"
-          echo "Certificate length:     ${#IOS_DEVELOPMENT_CERTIFICATE} characters"
           echo "Password length check (should be non-zero):"
           [[ -n "${{ secrets.IOS_DEVELOPMENT_CERTIFICATE_PASSWORD }}" ]] && echo "Password exists and is not empty" || echo "Password is EMPTY!"
-          echo "Password length:       ${#IOS_DEVELOPMENT_CERTIFICATE_PASSWORD} characters"
           echo "Provisioning profile check (should be non-zero):"
           [[ -n "${{ secrets.IOS_ADHOC_PROVISIONING_PROFILE }}" ]] && echo "Provisioning profile exists and is not empty" || echo "Profile is EMPTY!"
-          echo "Profile length:    ${#IOS_ADHOC_PROVISIONING_PROFILE} characters"
 
       # Test certificate decoding
       - name: Test Certificate Decoding
@@ -57,25 +54,29 @@ jobs:
           echo "Decoded certificate size: $(wc -c < /tmp/test_cert.p12) bytes"
           echo "Certificate file type:"
           file /tmp/test_cert.p12
-          # Test password (this may fail but confirms if password is being processed)
-          echo "Testing certificate with password (will likely fail, but shows if password is being processed):"
-          [[ -n "${{ secrets.IOS_DEVELOPMENT_CERTIFICATE_PASSWORD }}" ]] && echo "Password starts with: ${IOS_DEVELOPMENT_CERTIFICATE_PASSWORD:0:3}..."
 
-      # Clean the password to ensure no extra characters
-      - name: Trim any whitespace or newlines from the password and store in environment
+          # Show first character of password (safely)
+          echo "Password check (first char only):"
+          PASSWORD="${{ secrets.IOS_DEVELOPMENT_CERTIFICATE_PASSWORD }}"
+          if [ -n "$PASSWORD" ]; then
+            echo "Password starts with: ${PASSWORD:0:1}..."
+          else
+            echo "Password is empty"
+          fi
+
+      # Fix the password by hardcoding the exact password you used
+      - name: Set Hardcoded Password
         run: |
-          echo "Original password length: ${#IOS_DEVELOPMENT_CERTIFICATE_PASSWORD} characters"
-          CLEAN_PASSWORD=$(echo "${{ secrets.IOS_DEVELOPMENT_CERTIFICATE_PASSWORD }}" | tr -d '\n' | tr -d '\r' | tr -d ' ')
-          echo "Cleaned password length: ${#CLEAN_PASSWORD} characters"
-          echo "IOS_DEVELOPMENT_CERTIFICATE_PASSWORD=$CLEAN_PASSWORD" >> $GITHUB_ENV
+          # REPLACE THIS WITH YOUR EXACT PASSWORD - the one you entered in your script
+          echo "IOS_CERT_PASSWORD=testcert07" >> $GITHUB_ENV
 
-      # Create a new keychain for iOS code signing - use cleaned password
+      # Create a new keychain for iOS code signing - use hardcoded password
       - name: Setup iOS signing
         id: ios-signing
         uses: apple-actions/import-codesign-certs@v2
         with:
           p12-file-base64: ${{ secrets.IOS_DEVELOPMENT_CERTIFICATE }}
-          p12-password: ${{ env.IOS_DEVELOPMENT_CERTIFICATE_PASSWORD }}
+          p12-password: ${{ env.IOS_CERT_PASSWORD }}
           keychain-password: ${{ github.run_id }}
 
       - name: Install provisioning profile
