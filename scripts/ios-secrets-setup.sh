@@ -170,6 +170,10 @@ security export -t identities -f pkcs12 -k ~/Library/Keychains/login.keychain-db
 read -sp "Enter the password you just set for the certificate: " CERT_PASSWORD
 echo
 
+# Remove any trailing whitespace or newlines from the password
+CERT_PASSWORD=$(echo "$CERT_PASSWORD" | tr -d '\n' | tr -d '\r')
+echo -e "\n${YELLOW}Password sanitized to avoid hidden characters.${NC}"
+
 # Step 3: Find and export Provisioning Profile
 echo -e "\n${GREEN}Step 3: Finding Provisioning Profiles${NC}"
 echo "Listing all provisioning profiles..."

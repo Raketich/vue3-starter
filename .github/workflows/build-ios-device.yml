@@ -89,13 +89,29 @@ jobs:
           rm /tmp/test_cert.p12
           security delete-keychain /tmp/test.keychain || true
 
+      # Clean the password to ensure no extra characters
+      - name: Clean Certificate Password
+        id: clean-password
+        run: |
+          # Trim any whitespace or newlines from the password and store in environment
+          CLEAN_PASSWORD=$(echo "${{ secrets.IOS_DEVELOPMENT_CERTIFICATE_PASSWORD }}" | tr -d '\n' | tr -d '\r' | tr -d ' ')
+          # Save to a GitHub Actions output variable (masked in logs)
+          echo "::add-mask::$CLEAN_PASSWORD"
+          echo "password=$CLEAN_PASSWORD" >> $GITHUB_OUTPUT
+
+          # Debug info (length only)
+          ORIG_LEN=$(echo "${{ secrets.IOS_DEVELOPMENT_CERTIFICATE_PASSWORD }}" | wc -c | tr -d ' ')
+          CLEAN_LEN=$(echo "$CLEAN_PASSWORD" | wc -c | tr -d ' ')
+          echo "Original password length: $ORIG_LEN characters"
+          echo "Cleaned password length: $CLEAN_LEN characters"
+
       # Create a new keychain for iOS code signing
       - name: Setup iOS signing
         id: ios-signing
         uses: apple-actions/import-codesign-certs@v2
         with:
           p12-file-base64: ${{ secrets.IOS_DEVELOPMENT_CERTIFICATE }}
-          p12-password: ${{ secrets.IOS_DEVELOPMENT_CERTIFICATE_PASSWORD }}
+          p12-password: ${{ steps.clean-password.outputs.password }}
           keychain-password: ${{ github.run_id }}
 
       - name: Install provisioning profile
