@@ -35,6 +35,60 @@ jobs:
       - name: Install project dependencies
         run: bun install
 
+      # Add debugging for iOS signing secrets
+      - name: Debug Certificate Info
+        run: |
+          echo "Certificate length check (should be non-zero):"
+          if [ -n "${{ secrets.IOS_DEVELOPMENT_CERTIFICATE }}" ]; then
+            echo "Certificate exists and is not empty"
+            SECRET_LENGTH=$(echo "${{ secrets.IOS_DEVELOPMENT_CERTIFICATE }}" | wc -c)
+            echo "Certificate length: $SECRET_LENGTH characters"
+          else
+            echo "ERROR: Certificate is empty!"
+          fi
+
+          echo "Password length check (should be non-zero):"
+          if [ -n "${{ secrets.IOS_DEVELOPMENT_CERTIFICATE_PASSWORD }}" ]; then
+            echo "Password exists and is not empty"
+            PASSWORD_LENGTH=$(echo "${{ secrets.IOS_DEVELOPMENT_CERTIFICATE_PASSWORD }}" | wc -c)
+            echo "Password length: $PASSWORD_LENGTH characters"
+          else
+            echo "ERROR: Password is empty!"
+          fi
+
+          # Check if provisioning profile is set
+          echo "Provisioning profile check (should be non-zero):"
+          if [ -n "${{ secrets.IOS_ADHOC_PROVISIONING_PROFILE }}" ]; then
+            echo "Provisioning profile exists and is not empty"
+            PROFILE_LENGTH=$(echo "${{ secrets.IOS_ADHOC_PROVISIONING_PROFILE }}" | wc -c)
+            echo "Profile length: $PROFILE_LENGTH characters"
+          else
+            echo "ERROR: Provisioning profile is empty!"
+          fi
+
+      # Test certificate decoding
+      - name: Test Certificate Decoding
+        run: |
+          echo "Testing if certificate can be properly decoded from base64:"
+          echo "${{ secrets.IOS_DEVELOPMENT_CERTIFICATE }}" | base64 --decode > /tmp/test_cert.p12
+          file_size=$(ls -la /tmp/test_cert.p12 | awk '{print $5}')
+          echo "Decoded certificate size: $file_size bytes"
+          echo "Certificate file type:"
+          file /tmp/test_cert.p12
+
+          # Try importing with the debug password (will fail but shows password handling)
+          echo "Testing certificate with password (will likely fail, but shows if password is being processed):"
+          # Using a dummy keychain just for testing
+          security create-keychain -p "temp1234" /tmp/test.keychain
+          security unlock-keychain -p "temp1234" /tmp/test.keychain
+          # Try import with first few characters of password (safe to show in logs)
+          PASS_START=$(echo "${{ secrets.IOS_DEVELOPMENT_CERTIFICATE_PASSWORD }}" | cut -c1-3)
+          echo "Password starts with: $PASS_START..."
+
+          # Cleanup
+          rm /tmp/test_cert.p12
+          security delete-keychain /tmp/test.keychain || true
+
       # Create a new keychain for iOS code signing
       - name: Setup iOS signing
         id: ios-signing
