@@ -35,48 +35,13 @@ jobs:
       - name: Install project dependencies
         run: bun install
 
-      # Add debugging for iOS signing secrets
-      - name: Debug Certificate Info
-        run: |
-          echo "Certificate length check (should be non-zero):"
-          [[ -n "${{ secrets.IOS_DEVELOPMENT_CERTIFICATE }}" ]] && echo "Certificate exists and is not empty" || echo "Certificate is EMPTY!"
-          echo "Password length check (should be non-zero):"
-          [[ -n "${{ secrets.IOS_DEVELOPMENT_CERTIFICATE_PASSWORD }}" ]] && echo "Password exists and is not empty" || echo "Password is EMPTY!"
-          echo "Provisioning profile check (should be non-zero):"
-          [[ -n "${{ secrets.IOS_ADHOC_PROVISIONING_PROFILE }}" ]] && echo "Provisioning profile exists and is not empty" || echo "Profile is EMPTY!"
-
-      # Test certificate decoding
-      - name: Test Certificate Decoding
-        run: |
-          # Test base64 decoding of the certificate
-          echo "Testing if certificate can be properly decoded from base64:"
-          echo "${{ secrets.IOS_DEVELOPMENT_CERTIFICATE }}" | base64 -d > /tmp/test_cert.p12
-          echo "Decoded certificate size: $(wc -c < /tmp/test_cert.p12) bytes"
-          echo "Certificate file type:"
-          file /tmp/test_cert.p12
-
-          # Show first character of password (safely)
-          echo "Password check (first char only):"
-          PASSWORD="${{ secrets.IOS_DEVELOPMENT_CERTIFICATE_PASSWORD }}"
-          if [ -n "$PASSWORD" ]; then
-            echo "Password starts with: ${PASSWORD:0:1}..."
-          else
-            echo "Password is empty"
-          fi
-
-      # Fix the password by hardcoding the exact password you used
-      - name: Set Hardcoded Password
-        run: |
-          # REPLACE THIS WITH YOUR EXACT PASSWORD - the one you entered in your script
-          echo "IOS_CERT_PASSWORD=testcert07" >> $GITHUB_ENV
-
-      # Create a new keychain for iOS code signing - use hardcoded password
+      # Create a new keychain for iOS code signing
       - name: Setup iOS signing
         id: ios-signing
         uses: apple-actions/import-codesign-certs@v2
         with:
           p12-file-base64: ${{ secrets.IOS_DEVELOPMENT_CERTIFICATE }}
-          p12-password: ${{ env.IOS_CERT_PASSWORD }}
+          p12-password: ${{ secrets.IOS_DEVELOPMENT_CERTIFICATE_PASSWORD }}
           keychain-password: ${{ github.run_id }}
 
       - name: Install provisioning profile
