@@ -1,10 +1,10 @@
 name: Build iOS App
 
 on:
-  push:
-    branches: [gha/ios-build]
-  pull_request:
-    branches: [gha/ios-build]
+  # push:
+  #   branches: [gha/ios-build]
+  # pull_request:
+  #   branches: [gha/ios-build]
   workflow_dispatch:
 
 jobs:
