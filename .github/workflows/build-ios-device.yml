@@ -35,6 +35,9 @@ jobs:
       - name: Install project dependencies
         run: bun install
 
+      - name: Build frontend
+        run: bun run build
+
       # Create a new keychain for iOS code signing
       - name: Setup iOS signing
         id: ios-signing
