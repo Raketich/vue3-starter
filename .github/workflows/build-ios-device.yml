@@ -78,9 +78,21 @@ jobs:
       - name: Initialize Tauri iOS
         run: bun run tauri ios init
 
+      # Configure automatic code signing
+      - name: Configure automatic code signing
+        run: |
+          # Create the Xcode project directory if it doesn't exist
+          xcodebuild -project src-tauri/gen/apple/app.xcodeproj -list
+
+          # Configure automatic code signing
+          /usr/libexec/PlistBuddy -c "Add :objects:*:buildSettings:CODE_SIGN_STYLE string Automatic" src-tauri/gen/apple/app.xcodeproj/project.pbxproj 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Set :objects:*:buildSettings:CODE_SIGN_STYLE Automatic" src-tauri/gen/apple/app.xcodeproj/project.pbxproj 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :objects:*:buildSettings:DEVELOPMENT_TEAM string ${{ secrets.APPLE_TEAM_ID }}" src-tauri/gen/apple/app.xcodeproj/project.pbxproj 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Set :objects:*:buildSettings:DEVELOPMENT_TEAM ${{ secrets.APPLE_TEAM_ID }}" src-tauri/gen/apple/app.xcodeproj/project.pbxproj 2>/dev/null || true
+
       # Build using Tauri
       - name: Build iOS app for device
-        run: bun run tauri ios build --debug
+        run: bun run tauri ios build --debug -- CODE_SIGN_IDENTITY="Apple Development" -allowProvisioningUpdates
 
       # Find and upload the IPA file
       - name: Locate and upload IPA
