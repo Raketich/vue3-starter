@@ -89,10 +89,24 @@ jobs:
           /usr/libexec/PlistBuddy -c "Set :objects:*:buildSettings:CODE_SIGN_STYLE Automatic" src-tauri/gen/apple/app.xcodeproj/project.pbxproj 2>/dev/null || true
           /usr/libexec/PlistBuddy -c "Add :objects:*:buildSettings:DEVELOPMENT_TEAM string ${{ secrets.APPLE_TEAM_ID }}" src-tauri/gen/apple/app.xcodeproj/project.pbxproj 2>/dev/null || true
           /usr/libexec/PlistBuddy -c "Set :objects:*:buildSettings:DEVELOPMENT_TEAM ${{ secrets.APPLE_TEAM_ID }}" src-tauri/gen/apple/app.xcodeproj/project.pbxproj 2>/dev/null || true
+          # Directly modify the Info.plist after project initialization
+          mkdir -p src-tauri/gen/apple/app/app || true
+          /usr/libexec/PlistBuddy -c "Add :CFBundleIdentifier string com.vue3-starter.app" src-tauri/gen/apple/app/app/Info.plist 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier com.vue3-starter.app" src-tauri/gen/apple/app/app/Info.plist 2>/dev/null || true
 
       # Build using Tauri
       - name: Build iOS app for device
-        run: bun run tauri ios build --debug -- CODE_SIGN_IDENTITY="Apple Development" -allowProvisioningUpdates
+        env:
+          DEVELOPER_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          # Debug Info
+          echo "Checking provisioning profiles:"
+          ls -la ~/Library/MobileDevice/Provisioning\ Profiles/
+          echo "Verifying Tauri config iOS section:"
+          cat src-tauri/tauri.conf.json | grep -A 5 iOS
+
+          # Run build
+          bun run tauri ios build --debug
 
       # Find and upload the IPA file
       - name: Locate and upload IPA
