@@ -1,10 +1,10 @@
-name: Build iOS App for Device
+name: Build iOS App for Device (New)
 
 on:
-  # push:
-  #   branches: [gha/ios-build]
-  # pull_request:
-  #   branches: [gha/ios-build]
+  push:
+    branches: [gha/ios-build]
+  pull_request:
+    branches: [gha/ios-build]
   workflow_dispatch:
 
 jobs:
@@ -94,7 +94,31 @@ jobs:
           /usr/libexec/PlistBuddy -c "Add :CFBundleIdentifier string com.vue3-starter.app" src-tauri/gen/apple/app/app/Info.plist 2>/dev/null || true
           /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier com.vue3-starter.app" src-tauri/gen/apple/app/app/Info.plist 2>/dev/null || true
 
-      # Build using Tauri
+      # Create ExportOptions.plist for proper IPA packaging
+      - name: Create export options
+        run: |
+          cat > ExportOptions.plist << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>method</key>
+              <string>development</string>
+              <key>teamID</key>
+              <string>${{ secrets.APPLE_TEAM_ID }}</string>
+              <key>compileBitcode</key>
+              <false/>
+          </dict>
+          </plist>
+          EOF
+
+          # Verify the file was created properly
+          cat ExportOptions.plist
+
+          # Copy to the Xcode project directory for easier access
+          cp ExportOptions.plist src-tauri/gen/apple/
+
+      # Build using Tauri with export options
       - name: Build iOS app for device
         env:
           DEVELOPER_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
@@ -104,9 +128,11 @@ jobs:
           ls -la ~/Library/MobileDevice/Provisioning\ Profiles/
           echo "Verifying Tauri config iOS section:"
           cat src-tauri/tauri.conf.json | grep -A 5 iOS
+          echo "Using Export Options:"
+          cat ExportOptions.plist
 
-          # Run build
-          bun run tauri ios build --debug
+          # Run build with export options
+          bun run tauri ios build --debug -- -allowProvisioningUpdates -exportOptionsPlist $(pwd)/ExportOptions.plist
 
       # Find and upload the IPA file
       - name: Locate and upload IPA
@@ -151,6 +177,14 @@ jobs:
           # Show final path to verify
           echo "Final IPA path: $IPA_PATH"
           ls -la $(dirname "$IPA_PATH")
+
+          # Verify IPA contents for debugging
+          mkdir -p ipa_contents
+          unzip -d ipa_contents "$IPA_PATH"
+          echo "IPA contains:"
+          ls -la ipa_contents/Payload/*.app/
+          echo "Embedded provisioning profile:"
+          ls -la ipa_contents/Payload/*.app/embedded.mobileprovision || echo "No embedded provisioning profile found!"
 
       # Upload the IPA as an artifact
       - name: Upload IPA
