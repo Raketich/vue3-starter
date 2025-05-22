@@ -103,11 +103,16 @@ jobs:
           <plist version="1.0">
           <dict>
               <key>method</key>
-              <string>development</string>
+              <string>ad-hoc</string>
               <key>teamID</key>
               <string>${{ secrets.APPLE_TEAM_ID }}</string>
               <key>compileBitcode</key>
               <false/>
+              <key>provisioningProfiles</key>
+                <dict>
+                    <key>com.vue3-starter.app</key>
+                    <string>adhoc</string>
+                </dict>
           </dict>
           </plist>
           EOF
