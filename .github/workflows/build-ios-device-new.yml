@@ -131,8 +131,8 @@ jobs:
           echo "Using Export Options:"
           cat ExportOptions.plist
 
-          # Run build with export options
-          bun run tauri ios build --debug -- -allowProvisioningUpdates -exportOptionsPlist $(pwd)/ExportOptions.plist
+          # Run build without the problematic flags
+          bun run tauri ios build --debug
 
       # Find and upload the IPA file
       - name: Locate and upload IPA
